@@ -82,27 +82,6 @@
     .install-btn.primary { background: linear-gradient(90deg, var(--fire-red), var(--fire-orange)); color: #fff; }
     .install-btn.secondary { background: rgba(255,255,255,0.07); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); }
 
-    /* ─── WAKE LOCK STATUS DOT ──────────────────────── */
-    #wakeLockDot {
-      position: fixed;
-      top: calc(12px + var(--safe-top));
-      right: 14px;
-      z-index: 7777;
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.15);
-      transition: background 0.4s, box-shadow 0.4s;
-      title: "Screen lock";
-    }
-    #wakeLockDot.active {
-      background: var(--success);
-      box-shadow: 0 0 8px var(--success);
-    }
-    #wakeLockDot.failed {
-      background: var(--danger);
-      box-shadow: 0 0 8px var(--danger);
-    }
-
     /* ─── HERO ─────────────────────────────────────── */
     .hero {
       background: linear-gradient(135deg, #0a0a14 0%, #1a0a2e 40%, #1a0f0a 100%);
@@ -330,9 +309,6 @@
   </style>
 </head>
 <body>
-
-<!-- Wake Lock status dot -->
-<div id="wakeLockDot" title="Screen wake lock status"></div>
 
 <!-- PWA Install Banner -->
 <div id="installBanner">
@@ -629,11 +605,6 @@
   let silentCtx    = null;
   let silentNode   = null;
 
-  function setWakeDot(state) {
-    const dot = document.getElementById('wakeLockDot');
-    dot.className = state; // 'active' | 'failed' | ''
-  }
-
   function buildCanvasVideo() {
     if (noSleepVideo) return noSleepVideo;
     const canvas = document.createElement('canvas');
@@ -656,23 +627,19 @@
   }
 
   async function acquireWakeLock() {
-    let success = false;
-
     // Strategy A: Wake Lock API (works in PWA + HTTPS)
     if ('wakeLock' in navigator) {
       try {
         wakeLock = await navigator.wakeLock.request('screen');
         wakeLock.addEventListener('release', () => {
-          // Re-acquire if released unexpectedly while timer running
           const anyRunning = Object.values(state).some(s => s.timer !== null);
           if (anyRunning) acquireWakeLock();
         });
-        success = true;
       } catch(e) {}
     }
 
     // Strategy B: Canvas video
-    try { await buildCanvasVideo().play(); success = true; } catch(e) {}
+    try { await buildCanvasVideo().play(); } catch(e) {}
 
     // Strategy C: Silent audio
     try {
@@ -684,21 +651,16 @@
         g.gain.value = 0;
         silentNode.connect(g); g.connect(silentCtx.destination);
         silentNode.start();
-        success = true;
       } else if (silentCtx.state === 'suspended') {
         await silentCtx.resume();
-        success = true;
       }
     } catch(e) {}
-
-    setWakeDot(success ? 'active' : 'failed');
   }
 
   function releaseWakeLock() {
     if (wakeLock)    { wakeLock.release().catch(()=>{}); wakeLock = null; }
     if (noSleepVideo){ noSleepVideo.pause(); }
     if (silentCtx)   { silentCtx.suspend().catch(()=>{}); }
-    setWakeDot('');
   }
 
   document.addEventListener('visibilitychange', () => {
