@@ -215,6 +215,14 @@
     .ex-item.editing{cursor:default;}
     .ex-item.editing:active{background:rgba(255,255,255,.02);}
     .ex-inputs{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
+
+    /* DRAG HANDLE */
+    .drag-handle{display:flex;align-items:center;justify-content:center;
+      width:28px;flex-shrink:0;cursor:grab;color:rgba(255,255,255,.25);
+      font-size:1.1rem;padding:4px;touch-action:none;}
+    .drag-handle:active{cursor:grabbing;color:rgba(255,255,255,.5);}
+    .ex-item.dragging{opacity:.35;background:rgba(255,255,255,.04);}
+    .ex-item.drag-over{border-top:2px solid var(--accent-gold);}
     .ex-in{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;
       padding:6px 10px;color:var(--text-main);font-family:'JetBrains Mono',monospace;font-size:.82rem;
       width:100%;outline:none;}
@@ -610,7 +618,7 @@ const DEF={
   day3:{rounds:4,exercises:[
     {name:'Sumo Dumbbell Squat', reps:'15 \u2013 20 reps \u2014 wide stance, toes out'},
     {name:'Romanian Deadlift',   reps:'15 \u2013 20 reps \u2014 hip hinge'},
-    {name:'Weighted Glute Bridge',reps:'15 \u2013 20 reps \u2014 squeeze at top'},
+    {name:'Hip Thrust',reps:'15 \u2013 20 reps \u2014 squeeze at top'},
     {name:'Calf Raises',         reps:'25 \u2013 30 reps \u2014 full range'},
     {name:'V-Ups',               reps:'30 reps \u2014 controlled movement'}
   ]}
@@ -636,7 +644,8 @@ function renderList(dayId){
   if(!list) return;
   list.innerHTML=exercises.map((ex,i)=>{
     if(isEdit){
-      return '<div class="ex-item editing no-select" data-idx="'+i+'">'
+      return '<div class="ex-item editing no-select" draggable="true" data-idx="'+i+'" data-day="'+dayId+'">'
+        +'<div class="drag-handle" title="Drag to reorder">&#9776;</div>'
         +'<div class="ex-num">'+String(i+1).padStart(2,'0')+'</div>'
         +'<div class="ex-inputs">'
         +'<input class="ex-in" value="'+esc(ex.name)+'" placeholder="Exercise name" '
@@ -656,6 +665,8 @@ function renderList(dayId){
         +'</div></div>';
     }
   }).join('');
+
+  if(isEdit) initDrag(dayId);
   updateProgress(dayId);
   updateHeroCount();
 }
@@ -678,6 +689,106 @@ function delEx(dayId,i){
   if(EX[dayId].exercises.length<=1)return;
   EX[dayId].exercises.splice(i,1);
   saveEx(); renderList(dayId);
+}
+
+/* DRAG AND DROP REORDER */
+function initDrag(dayId){
+  const n=dayId.replace('day','');
+  const list=document.getElementById('list'+n);
+  let dragSrc=null;
+
+  list.querySelectorAll('.ex-item.editing').forEach(item=>{
+
+    item.addEventListener('dragstart',e=>{
+      dragSrc=item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain', item.dataset.idx);
+    });
+
+    item.addEventListener('dragend',()=>{
+      list.querySelectorAll('.ex-item').forEach(i=>{
+        i.classList.remove('dragging','drag-over');
+      });
+      dragSrc=null;
+    });
+
+    item.addEventListener('dragover',e=>{
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      list.querySelectorAll('.ex-item').forEach(i=>i.classList.remove('drag-over'));
+      if(item!==dragSrc) item.classList.add('drag-over');
+    });
+
+    item.addEventListener('dragleave',()=>{
+      item.classList.remove('drag-over');
+    });
+
+    item.addEventListener('drop',e=>{
+      e.preventDefault();
+      if(!dragSrc || dragSrc===item) return;
+      const fromIdx=parseInt(dragSrc.dataset.idx);
+      const toIdx=parseInt(item.dataset.idx);
+      // Reorder the array
+      const arr=EX[dayId].exercises;
+      const moved=arr.splice(fromIdx,1)[0];
+      arr.splice(toIdx,0,moved);
+      saveEx();
+      renderList(dayId);
+    });
+
+    /* Touch support for mobile */
+    let touchDragIdx=null, touchClone=null;
+
+    item.querySelector('.drag-handle').addEventListener('touchstart',e=>{
+      touchDragIdx=parseInt(item.dataset.idx);
+      item.classList.add('dragging');
+      // Create a visual clone
+      touchClone=item.cloneNode(true);
+      touchClone.style.cssText='position:fixed;z-index:9999;opacity:.85;pointer-events:none;'
+        +'width:'+item.offsetWidth+'px;border-radius:10px;background:#16213e;'
+        +'box-shadow:0 8px 32px rgba(0,0,0,.5);';
+      document.body.appendChild(touchClone);
+      e.preventDefault();
+    },{passive:false});
+
+    item.querySelector('.drag-handle').addEventListener('touchmove',e=>{
+      if(touchDragIdx===null) return;
+      const t=e.touches[0];
+      if(touchClone){
+        touchClone.style.left=(t.clientX-touchClone.offsetWidth/2)+'px';
+        touchClone.style.top=(t.clientY-30)+'px';
+      }
+      // Find item under finger
+      if(touchClone) touchClone.style.display='none';
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      if(touchClone) touchClone.style.display='';
+      const targetItem=el?.closest('.ex-item.editing');
+      list.querySelectorAll('.ex-item').forEach(i=>i.classList.remove('drag-over'));
+      if(targetItem && targetItem!==item) targetItem.classList.add('drag-over');
+      e.preventDefault();
+    },{passive:false});
+
+    item.querySelector('.drag-handle').addEventListener('touchend',e=>{
+      if(touchClone){touchClone.remove();touchClone=null;}
+      item.classList.remove('dragging');
+      list.querySelectorAll('.ex-item').forEach(i=>i.classList.remove('drag-over'));
+      const t=e.changedTouches[0];
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      const targetItem=el?.closest('.ex-item.editing');
+      if(targetItem && touchDragIdx!==null){
+        const toIdx=parseInt(targetItem.dataset.idx);
+        if(toIdx!==touchDragIdx){
+          const arr=EX[dayId].exercises;
+          const moved=arr.splice(touchDragIdx,1)[0];
+          arr.splice(toIdx,0,moved);
+          saveEx();
+          renderList(dayId);
+        }
+      }
+      touchDragIdx=null;
+    });
+  });
 }
 
 function addExercise(dayId){
