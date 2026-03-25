@@ -3,7 +3,7 @@
    Caches all assets for full offline support
    ═══════════════════════════════════════════════════ */
 
-const CACHE_NAME  = 'mts-workout-v8';
+const CACHE_NAME  = 'mts-workout-v9';
 const CACHED_URLS = [
   './index.html',
   './manifest.json',
