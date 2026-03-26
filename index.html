@@ -101,6 +101,55 @@
     .st-pill.ps .spn{color:var(--fire-orange);}
     .st-pill.pu .spn{color:var(--accent-teal);}
     .st-pill.lg .spn{color:var(--success);}
+    /* STREAK — month calendar nav */
+    .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .cal-nav-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:var(--text-muted);
+      border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.85rem;font-family:'Cairo',sans-serif;
+      transition:all .2s;-webkit-tap-highlight-color:transparent;}
+    .cal-nav-btn:active{background:rgba(255,255,255,.15);}
+    .cal-month-label{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:var(--text-main);}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+    .cal-day-name{font-size:.55rem;color:rgba(255,255,255,.2);text-transform:uppercase;
+      font-family:'JetBrains Mono',monospace;text-align:center;padding-bottom:4px;}
+    .cal-cell{height:28px;border-radius:7px;background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;
+      font-size:.62rem;color:rgba(255,255,255,.15);font-family:'JetBrains Mono',monospace;
+      cursor:default;transition:all .15s;}
+    .cal-cell.empty{background:transparent;border-color:transparent;}
+    .cal-cell.today{border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.5);}
+    .cal-cell.push{background:rgba(244,99,30,.22);border-color:rgba(244,99,30,.45);
+      color:var(--fire-orange);cursor:pointer;font-size:.8rem;}
+    .cal-cell.pull{background:rgba(0,212,170,.16);border-color:rgba(0,212,170,.4);
+      color:var(--accent-teal);cursor:pointer;font-size:.8rem;}
+    .cal-cell.legs{background:rgba(34,197,94,.16);border-color:rgba(34,197,94,.4);
+      color:var(--success);cursor:pointer;font-size:.8rem;}
+    .cal-cell.push:active,.cal-cell.pull:active,.cal-cell.legs:active{transform:scale(.9);}
+
+    /* DAY DETAIL POPUP */
+    #dayModal{display:none;position:fixed;inset:0;z-index:9000;
+      background:rgba(10,10,20,.85);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      align-items:flex-end;justify-content:center;}
+    #dayModal.show{display:flex;animation:slideUp .3s ease;}
+    .dm-inner{background:var(--dark-card);border-radius:20px 20px 0 0;
+      border:1px solid rgba(255,255,255,.08);padding:24px 24px 40px;
+      width:100%;max-width:480px;box-shadow:0 -8px 40px rgba(0,0,0,.4);}
+    .dm-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin:0 auto 20px;}
+    .dm-date{font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
+    .dm-type{font-size:1.3rem;font-weight:700;margin-bottom:12px;}
+    .dm-type.push{color:var(--fire-orange);}
+    .dm-type.pull{color:var(--accent-teal);}
+    .dm-type.legs{color:var(--success);}
+    .dm-time{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 16px;}
+    .dm-time-icon{font-size:1.4rem;}
+    .dm-time-val{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--accent-gold);}
+    .dm-time-lbl{font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;}
+    .dm-close{width:100%;margin-top:16px;padding:12px;border-radius:12px;border:none;
+      background:rgba(255,255,255,.07);color:var(--text-muted);font-family:'Cairo',sans-serif;
+      font-size:.9rem;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+    .dm-close:active{background:rgba(255,255,255,.14);}
+    .dm-no-time{font-size:.82rem;color:var(--text-muted);font-style:italic;}
+
 
     /* INSTRUCTIONS */
     .instructions{background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.2);
@@ -401,11 +450,33 @@
         <span class="st-lbl">day streak</span>
       </div>
     </div>
-    <div class="st-cal" id="streakCal"></div>
-    <div class="st-stats">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrev()">‹ Prev</button>
+      <div class="cal-month-label" id="calMonthLabel"></div>
+      <button class="cal-nav-btn" id="calNextBtn" onclick="calNext()">Next ›</button>
+    </div>
+    <div class="cal-grid" id="streakCal"></div>
+    <div class="st-stats" style="margin-top:12px;">
       <div class="st-pill ps"><span class="spn" id="pushCnt">0</span><span class="spl">Push</span></div>
       <div class="st-pill pu"><span class="spn" id="pullCnt">0</span><span class="spl">Pull</span></div>
       <div class="st-pill lg"><span class="spn" id="legsCnt">0</span><span class="spl">Legs</span></div>
+    </div>
+  </div>
+
+  <!-- DAY DETAIL MODAL -->
+  <div id="dayModal" onclick="closeDayModal(event)">
+    <div class="dm-inner">
+      <div class="dm-handle"></div>
+      <div class="dm-date" id="dmDate"></div>
+      <div class="dm-type" id="dmType"></div>
+      <div class="dm-time" id="dmTimeRow">
+        <div class="dm-time-icon">⏱</div>
+        <div>
+          <div class="dm-time-val" id="dmTimeVal">--:--</div>
+          <div class="dm-time-lbl">Session Duration</div>
+        </div>
+      </div>
+      <button class="dm-close" onclick="closeDayModal()">Close</button>
     </div>
   </div>
 
@@ -695,6 +766,7 @@ const DEF={
     {name:'Sumo Dumbbell Squat', reps:'15 \u2013 20 reps \u2014 wide stance, toes out',timed:false,duration:60},
     {name:'Romanian Deadlift',   reps:'15 \u2013 20 reps \u2014 hip hinge',timed:false,duration:60},
     {name:'Hip Thrust',          reps:'15 \u2013 20 reps \u2014 squeeze at top',timed:false,duration:60},
+    {name:'Mountain Climbers',    reps:'45 seconds \u2014 keep hips low',timed:true,duration:45},
     {name:'Calf Raises',         reps:'25 \u2013 30 reps \u2014 full range',timed:false,duration:60},
     {name:'V-Ups',               reps:'30 reps \u2014 controlled movement',timed:false,duration:60}
   ]}
@@ -1025,29 +1097,120 @@ function stopTimer(dayId){
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function loadH(){try{return JSON.parse(localStorage.getItem('mts_history')||'{}');}catch(e){return{};}}
 function saveH(h){try{localStorage.setItem('mts_history',JSON.stringify(h));}catch(e){}}
-function logWorkout(t){const h=loadH();h[todayKey()]=t;saveH(h);renderStreak();}
+function logWorkout(t,timeStr){
+  const h=loadH();
+  h[todayKey()]={type:t,time:timeStr||''};
+  saveH(h);renderStreak();
+}
+// Helper — get type string from entry (supports old string format + new object format)
+function entryType(e){return e&&typeof e==='object'?e.type:e;}
+function entryTime(e){return e&&typeof e==='object'?e.time:'';}
+
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+
+function calPrev(){
+  calMonth--;if(calMonth<0){calMonth=11;calYear--;}
+  renderStreak();
+}
+function calNext(){
+  const now=new Date();
+  if(calYear<now.getFullYear()||(calYear===now.getFullYear()&&calMonth<now.getMonth())){
+    calMonth++;if(calMonth>11){calMonth=0;calYear++;}
+    renderStreak();
+  }
+}
+
 function renderStreak(){
   const h=loadH(),today=todayKey();
-  const days=[];
-  for(let i=27;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);
-    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    days.push({key:k,date:d,type:h[k]||null});}
+  const now=new Date();
+
+  // ── Streak count (always based on today backwards) ──
   let streak=0;
-  for(let i=days.length-1;i>=0;i--){if(h[days[i].key])streak++;else if(days[i].key===today)continue;else break;}
+  for(let i=0;i<365;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(h[k]) streak++;
+    else if(k===today) continue;
+    else break;
+  }
   document.getElementById('streakNum').textContent=streak;
   document.getElementById('heroStreak').textContent=streak;
-  const c={push:0,pull:0,legs:0};Object.values(h).forEach(t=>{if(c[t]!==undefined)c[t]++;});
+
+  // ── All-time type counts ──
+  const c={push:0,pull:0,legs:0};
+  Object.values(h).forEach(e=>{const t=entryType(e);if(c[t]!==undefined)c[t]++;});
   document.getElementById('pushCnt').textContent=c.push;
   document.getElementById('pullCnt').textContent=c.pull;
   document.getElementById('legsCnt').textContent=c.legs;
-  const IC={push:'🔥',pull:'⚡',legs:'💥'},DN=['Su','Mo','Tu','We','Th','Fr','Sa'];
-  const grid=document.getElementById('streakCal');grid.innerHTML='';
-  for(let col=0;col<7;col++){const colEl=document.createElement('div');colEl.className='st-col';
-    const dn=document.createElement('div');dn.className='st-dn';dn.textContent=DN[days[col]?.date.getDay()??col];colEl.appendChild(dn);
-    days.filter((_,i)=>i%7===col).forEach(d=>{const dot=document.createElement('div');
-      dot.className='st-dot'+(d.type?' '+d.type:'')+(d.key===today?' today':'');
-      dot.textContent=d.type?IC[d.type]:'';colEl.appendChild(dot);});
-    grid.appendChild(colEl);}
+
+  // ── Month nav label ──
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent=MONTHS[calMonth]+' '+calYear;
+  // Disable next if already current month
+  const nextBtn=document.getElementById('calNextBtn');
+  if(nextBtn) nextBtn.style.opacity=(calYear===now.getFullYear()&&calMonth===now.getMonth())?'0.3':'1';
+
+  // ── Build month calendar grid ──
+  const IC={push:'🔥',pull:'⚡',legs:'💥'};
+  const DN=['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const grid=document.getElementById('streakCal');
+  grid.innerHTML='';
+
+  // Day-of-week header
+  DN.forEach(d=>{
+    const el=document.createElement('div');el.className='cal-day-name';el.textContent=d;grid.appendChild(el);
+  });
+
+  // First day of month weekday offset
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+
+  // Empty cells before first day
+  for(let i=0;i<firstDay;i++){
+    const el=document.createElement('div');el.className='cal-cell empty';grid.appendChild(el);
+  }
+
+  // Day cells
+  for(let day=1;day<=daysInMonth;day++){
+    const k=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const entry=h[k];
+    const type=entryType(entry);
+    const el=document.createElement('div');
+    let cls='cal-cell';
+    if(k===today) cls+=' today';
+    if(type) cls+=' '+type;
+    el.className=cls;
+    el.textContent=type?IC[type]:day;
+    if(type){
+      el.onclick=()=>showDayDetail(k,entry);
+    }
+    grid.appendChild(el);
+  }
+}
+
+function showDayDetail(key,entry){
+  const type=entryType(entry);
+  const time=entryTime(entry);
+  const LABELS={push:'🔥 Push Day',pull:'⚡ Pull Day',legs:'💥 Leg Day'};
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [y,m,d]=key.split('-');
+  document.getElementById('dmDate').textContent=d+' '+MONTHS[parseInt(m)-1]+' '+y;
+  const typeEl=document.getElementById('dmType');
+  typeEl.textContent=LABELS[type]||type;
+  typeEl.className='dm-type '+(type||'');
+  const timeRow=document.getElementById('dmTimeRow');
+  if(time){
+    timeRow.style.display='flex';
+    document.getElementById('dmTimeVal').textContent=time;
+  } else {
+    timeRow.style.display='none';
+  }
+  document.getElementById('dayModal').classList.add('show');
+}
+
+function closeDayModal(e){
+  if(!e||e.target===document.getElementById('dayModal'))
+    document.getElementById('dayModal').classList.remove('show');
 }
 
 /* ── WAKE LOCK ───────────────────────────────────────────────── */
@@ -1127,7 +1290,7 @@ function startCD(dayId){
     const ts=stopTimer(dayId);
     document.getElementById('doneTime'+n).textContent='⏱ Session: '+ts;
     document.getElementById('allDone'+n).classList.add('on');
-    sleep(); logWorkout(document.getElementById(dayId).dataset.dayType);
+    sleep(); logWorkout(document.getElementById(dayId).dataset.dayType, ts);
     return;
   }
   document.getElementById('cdRound'+n).textContent=cur;
