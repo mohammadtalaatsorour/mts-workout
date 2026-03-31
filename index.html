@@ -308,6 +308,22 @@
     @keyframes tPulse{from{opacity:1}to{opacity:.55}}
     .ex-item.done .ex-timer-btn{opacity:.4;pointer-events:none;}
 
+
+    /* START WORKOUT BUTTON */
+    .start-workout-bar{padding:0 20px 16px;}
+    .start-btn{width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+      font-family:'Cairo',sans-serif;font-size:.95rem;font-weight:700;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:all .2s;-webkit-tap-highlight-color:transparent;}
+    .day-section.push .start-btn{background:linear-gradient(135deg,rgba(230,57,70,.25),rgba(244,99,30,.2));
+      color:var(--fire-orange);border:1px solid rgba(244,99,30,.4);}
+    .day-section.pull .start-btn{background:linear-gradient(135deg,rgba(59,130,246,.18),rgba(0,212,170,.15));
+      color:var(--accent-teal);border:1px solid rgba(0,212,170,.35);}
+    .day-section.legs .start-btn{background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(134,239,172,.12));
+      color:var(--success);border:1px solid rgba(34,197,94,.35);}
+    .start-btn:active{transform:scale(.97);opacity:.8;}
+    .start-btn.started{opacity:.45;pointer-events:none;}
+    .start-btn.hidden{display:none;}
     /* REST TIMER CONTROL */
     .rest-control{background:var(--dark-card);border-radius:14px;border:1px solid rgba(255,255,255,.06);
       padding:16px 20px;margin-bottom:24px;display:flex;flex-direction:column;gap:12px;}
@@ -430,7 +446,7 @@
     <div class="hd"></div>
     <div class="hs"><span class="n">90s</span><div class="l">Rest</div></div>
     <div class="hd"></div>
-    <div class="hs"><span class="n" id="heroStreak">0</span><div class="l">🔥 Streak</div></div>
+    <div class="hs"><span class="n" id="heroStreak">0</span><div class="l">💪 Sessions</div></div>
   </div>
   <div class="hero-tags">
     <span class="tag">Push · Pull · Legs</span>
@@ -449,7 +465,7 @@
       <div class="st-count">
         <span class="st-flame">🔥</span>
         <span class="st-num" id="streakNum">0</span>
-        <span class="st-lbl">day streak</span>
+        <span class="st-lbl">week streak</span>
       </div>
     </div>
     <div class="cal-nav">
@@ -545,6 +561,7 @@
       <div class="prog-bg"><div class="prog-fill" id="prog1"></div></div>
       <div class="prog-count" id="count1">0 / 7</div>
     </div>
+    <div class="start-workout-bar" id="startBar1"><button class="start-btn" id="startBtn1" onclick="startWorkout('day1')">▶ Start Workout</button></div>
     <div class="ex-list" id="list1"></div>
     <button class="add-ex" id="addBtn1" onclick="addExercise('day1')">＋ Add Exercise</button>
     <div class="cd-overlay" id="cd1">
@@ -608,6 +625,7 @@
       <div class="prog-bg"><div class="prog-fill" id="prog2"></div></div>
       <div class="prog-count" id="count2">0 / 6</div>
     </div>
+    <div class="start-workout-bar" id="startBar2"><button class="start-btn" id="startBtn2" onclick="startWorkout('day2')">▶ Start Workout</button></div>
     <div class="ex-list" id="list2"></div>
     <button class="add-ex" id="addBtn2" onclick="addExercise('day2')">＋ Add Exercise</button>
     <div class="cd-overlay" id="cd2">
@@ -673,6 +691,7 @@
       <div class="prog-bg"><div class="prog-fill" id="prog3"></div></div>
       <div class="prog-count" id="count3">0 / 5</div>
     </div>
+    <div class="start-workout-bar" id="startBar3"><button class="start-btn" id="startBtn3" onclick="startWorkout('day3')">▶ Start Workout</button></div>
     <div class="ex-list" id="list3"></div>
     <button class="add-ex" id="addBtn3" onclick="addExercise('day3')">＋ Add Exercise</button>
     <div class="cd-overlay" id="cd3">
@@ -738,9 +757,9 @@ function setRest(v){REST=v;localStorage.setItem('mts_rest',v);updateRestUI();}
 /* ── STATE ──────────────────────────────────────────────────── */
 const CIRC=339.3;
 const S={
-  day1:{round:1,timer:null,start:null,elapsed:0,tick:null},
-  day2:{round:1,timer:null,start:null,elapsed:0,tick:null},
-  day3:{round:1,timer:null,start:null,elapsed:0,tick:null}
+  day1:{round:1,timer:null,start:null,elapsed:0,tick:null,started:false},
+  day2:{round:1,timer:null,start:null,elapsed:0,tick:null,started:false},
+  day3:{round:1,timer:null,start:null,elapsed:0,tick:null,started:false}
 };
 // Per-exercise timers: exTimers[dayId][idx] = {tick, rem}
 const exTimers={day1:{},day2:{},day3:{}};
@@ -873,8 +892,7 @@ function startExTimer(dayId,idx,totalSec){
     clearInterval(exTimers[dayId][idx].tick);
     delete exTimers[dayId][idx];
   }
-  awake();
-  startTimer(dayId); // ensure session timer running
+  if(!S[dayId].started) return; // must press Start first
 
   // PREP phase
   let prep=PREP_SECS;
@@ -1126,17 +1144,34 @@ function renderStreak(){
   const h=loadH(),today=todayKey();
   const now=new Date();
 
-  // ── Streak count (always based on today backwards) ──
+  // ── Week streak: consecutive weeks (Mon–Sun) with at least 1 session ──
+  function weekKey(d){
+    // Monday of the week containing d
+    const day=new Date(d);const dow=day.getDay();
+    const diff=dow===0?-6:1-dow; // shift to Monday
+    day.setDate(day.getDate()+diff);
+    return day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+  }
+  // Build set of weeks that have at least 1 workout
+  const trainedWeeks=new Set();
+  Object.keys(h).forEach(k=>{
+    const [y,m,d2]=k.split('-').map(Number);
+    trainedWeeks.add(weekKey(new Date(y,m-1,d2)));
+  });
+  // Count consecutive weeks backwards from current week
   let streak=0;
-  for(let i=0;i<365;i++){
-    const d=new Date();d.setDate(d.getDate()-i);
-    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    if(h[k]) streak++;
-    else if(k===today) continue;
+  const thisWeek=weekKey(new Date());
+  for(let i=0;i<52;i++){
+    const wDate=new Date();wDate.setDate(wDate.getDate()-i*7);
+    const wk=weekKey(wDate);
+    if(trainedWeeks.has(wk)) streak++;
+    else if(wk===thisWeek) continue; // haven't trained this week yet — don't break
     else break;
   }
   document.getElementById('streakNum').textContent=streak;
-  document.getElementById('heroStreak').textContent=streak;
+  // Hero shows total sessions
+  const totalSessions=Object.keys(h).length;
+  document.getElementById('heroStreak').textContent=totalSessions;
 
   // ── All-time type counts ──
   const c={push:0,pull:0,legs:0};
@@ -1265,13 +1300,23 @@ function flash(dayId){const s=document.getElementById(dayId);s.classList.add('fl
   setTimeout(()=>s.classList.remove('flash-alert'),1200);}
 
 /* ── CORE WORKOUT LOGIC ──────────────────────────────────────── */
+function startWorkout(dayId){
+  const n=dayId.replace('day','');
+  const btn=document.getElementById('startBtn'+n);
+  if(btn) btn.classList.add('started');
+  S[dayId].started=true;
+  awake();
+  startTimer(dayId);
+}
+
 function toggle(item,dayId){
   const sec=document.getElementById(dayId);
   if(sec.classList.contains('completed-all'))return;
   if(EM[dayId])return;
   const n=dayId.replace('day','');
   if(document.getElementById('cd'+n).classList.contains('on'))return;
-  awake(); startTimer(dayId);
+  // Only allow checking if workout was started
+  if(!S[dayId].started) return;
   item.classList.toggle('done');
   updateProgress(dayId);
   const items=sec.querySelectorAll('.ex-item');
@@ -1344,7 +1389,7 @@ function resetAll(){
     // Clear exercise timers
     Object.keys(exTimers[dayId]).forEach(k=>{clearInterval(exTimers[dayId][k].tick);delete exTimers[dayId][k];});
     if(S[dayId].timer){clearInterval(S[dayId].timer);S[dayId].timer=null;}
-    stopTimer(dayId);S[dayId].round=1;S[dayId].elapsed=0;
+    stopTimer(dayId);S[dayId].round=1;S[dayId].elapsed=0;S[dayId].started=false;
     sec.querySelectorAll('.ex-item').forEach(i=>i.classList.remove('done','locked'));
     sec.querySelectorAll('.rdot').forEach(d=>{d.classList.remove('done','active');
       if(parseInt(d.dataset.round)===1)d.classList.add('active');});
@@ -1353,6 +1398,7 @@ function resetAll(){
     document.getElementById('allDone'+n).classList.remove('on');
     document.getElementById('timer'+n).classList.remove('on');
     document.getElementById('timerVal'+n).textContent='00:00';
+    const sb=document.getElementById('startBtn'+n);if(sb)sb.classList.remove('started');
     sec.classList.remove('completed-all');
     updateProgress(dayId);
   });
